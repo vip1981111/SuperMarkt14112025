@@ -50,28 +50,12 @@ struct AddItemView: View {
                     TextField("اسم المنتج", text: $name)
                         .focused($focusedField, equals: .name)
                     
-                    HStack {
-                        Text("الكمية")
-                        Spacer()
-                        
-                        Button {
-                            if quantity > 1 { quantity -= 1 }
-                        } label: {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(quantity > 1 ? .blue : .gray)
-                        }
-                        .disabled(quantity <= 1)
-                        
-                        Text("\(quantity)")
-                            .font(.title3.bold())
-                            .frame(minWidth: 40)
-                        
-                        Button {
-                            quantity += 1
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
+                    Stepper(value: $quantity, in: 1...999) {
+                        HStack {
+                            Text("الكمية")
+                            Spacer()
+                            Text("\(quantity)")
+                                .font(.title3.bold())
                                 .foregroundStyle(.blue)
                         }
                     }

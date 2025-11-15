@@ -13,7 +13,13 @@ import Combine
 
 @MainActor
 class CameraViewModel: NSObject, ObservableObject {
-    @Published var scannedPrices: [Double] = []
+    static let shared = CameraViewModel()
+    
+    @Published var scannedPrices: [Double] = [] {
+        didSet {
+            savePrices()
+        }
+    }
     @Published var currentPrice: String = ""
     @Published var totalAmount: Double = 0.0
     @Published var isProcessing = false
@@ -23,9 +29,15 @@ class CameraViewModel: NSObject, ObservableObject {
     private var captureSession: AVCaptureSession?
     private var videoOutput: AVCaptureVideoDataOutput?
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+    private let pricesKey = "SavedScannedPrices"
     
     var totalScanned: Double {
         return scannedPrices.reduce(0, +)
+    }
+    
+    override init() {
+        super.init()
+        loadPrices()
     }
     
     func setupCamera() -> AVCaptureSession? {
@@ -98,6 +110,20 @@ class CameraViewModel: NSObject, ObservableObject {
         scannedPrices.removeAll()
         currentPrice = ""
         totalAmount = 0.0
+    }
+    
+    // MARK: - Persistence
+    
+    private func savePrices() {
+        UserDefaults.standard.set(scannedPrices, forKey: pricesKey)
+        totalAmount = totalScanned
+    }
+    
+    private func loadPrices() {
+        if let saved = UserDefaults.standard.array(forKey: pricesKey) as? [Double] {
+            scannedPrices = saved
+            totalAmount = totalScanned
+        }
     }
     
     nonisolated private func recognizeText(in image: CVPixelBuffer) {

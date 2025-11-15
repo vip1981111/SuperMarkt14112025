@@ -9,7 +9,7 @@ import SwiftUI
 import AVFoundation
 
 struct CameraView: View {
-    @StateObject private var cameraViewModel = CameraViewModel()
+    @StateObject private var cameraViewModel = CameraViewModel.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showingManualEntry = false
     @State private var showingPriceHistory = false

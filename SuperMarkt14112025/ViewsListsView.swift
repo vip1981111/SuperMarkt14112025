@@ -12,6 +12,8 @@ struct ListsView: View {
     @State private var showingNewList = false
     @State private var newListName = ""
     @State private var showArchived = false
+    @State private var showingDeleteConfirmation = false
+    @State private var listToDelete: ShoppingList?
     
     private var activeLists: [ShoppingList] {
         viewModel.lists.filter { !$0.isArchived }
@@ -23,68 +25,114 @@ struct ListsView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header Stats
+            List {
+                // Header Stats
+                Section {
                     headerStats
-                    
-                    // Active Lists
-                    if !activeLists.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("القوائم النشطة")
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal)
-                            
-                            ForEach(activeLists) { list in
-                                NavigationLink(destination: ShoppingListDetailView(viewModel: viewModel, list: list)) {
-                                    ListCard(list: list)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                
+                // Active Lists
+                if !activeLists.isEmpty {
+                    Section {
+                        ForEach(activeLists) { list in
+                            NavigationLink(destination: ShoppingListDetailView(viewModel: viewModel, list: list)) {
+                                ListCardCompact(list: list)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    listToDelete = list
+                                    showingDeleteConfirmation = true
+                                } label: {
+                                    Label("حذف", systemImage: "trash.fill")
                                 }
-                                .buttonStyle(.plain)
+                                
+                                Button {
+                                    withAnimation {
+                                        viewModel.archiveList(list)
+                                    }
+                                } label: {
+                                    Label("أرشفة", systemImage: "archivebox.fill")
+                                }
+                                .tint(.orange)
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    withAnimation {
+                                        viewModel.duplicateList(list)
+                                    }
+                                } label: {
+                                    Label("نسخ", systemImage: "doc.on.doc.fill")
+                                }
+                                .tint(.blue)
                             }
                         }
+                    } header: {
+                        Text("القوائم النشطة")
                     }
-                    
-                    // Archived Lists Toggle
-                    if !archivedLists.isEmpty {
+                }
+                
+                // Archived Lists
+                if !archivedLists.isEmpty {
+                    Section {
                         Button {
                             withAnimation {
                                 showArchived.toggle()
                             }
                         } label: {
                             HStack {
-                                Text("القوائم المؤرشفة (\(archivedLists.count))")
-                                    .font(.headline)
+                                Text("القوائم المؤرشفة")
+                                    .foregroundStyle(.primary)
                                 
                                 Spacer()
                                 
+                                Text("\(archivedLists.count)")
+                                    .foregroundStyle(.secondary)
+                                
                                 Image(systemName: showArchived ? "chevron.up" : "chevron.down")
+                                    .foregroundStyle(.secondary)
                             }
-                            .foregroundStyle(.secondary)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
-                        .padding(.horizontal)
                         
                         if showArchived {
                             ForEach(archivedLists) { list in
                                 NavigationLink(destination: ShoppingListDetailView(viewModel: viewModel, list: list)) {
-                                    ListCard(list: list)
+                                    ListCardCompact(list: list)
                                         .opacity(0.7)
                                 }
-                                .buttonStyle(.plain)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        listToDelete = list
+                                        showingDeleteConfirmation = true
+                                    } label: {
+                                        Label("حذف", systemImage: "trash.fill")
+                                    }
+                                    
+                                    Button {
+                                        withAnimation {
+                                            viewModel.archiveList(list)
+                                        }
+                                    } label: {
+                                        Label("استعادة", systemImage: "arrow.uturn.backward")
+                                    }
+                                    .tint(.green)
+                                }
                             }
                         }
                     }
-                    
-                    // Empty State
-                    if activeLists.isEmpty && archivedLists.isEmpty {
+                }
+                
+                // Empty State
+                if activeLists.isEmpty && archivedLists.isEmpty {
+                    Section {
                         emptyState
                     }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
-                .padding(.vertical)
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("قوائم التسوق")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -111,6 +159,24 @@ struct ListsView: View {
                 }
             } message: {
                 Text("أدخل اسم القائمة الجديدة")
+            }
+            .confirmationDialog("هل أنت متأكد من حذف هذه القائمة؟", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                Button("حذف نهائياً", role: .destructive) {
+                    if let list = listToDelete {
+                        withAnimation {
+                            viewModel.deleteList(list)
+                        }
+                        listToDelete = nil
+                    }
+                }
+                
+                Button("إلغاء", role: .cancel) {
+                    listToDelete = nil
+                }
+            } message: {
+                if let list = listToDelete {
+                    Text("سيتم حذف \"\(list.name)\" وجميع عناصرها نهائياً")
+                }
             }
         }
     }
@@ -255,6 +321,72 @@ struct ListCard: View {
         .background(Color(.systemGray6))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
+    }
+}
+
+// MARK: - List Card Compact (for List view)
+
+struct ListCardCompact: View {
+    let list: ShoppingList
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(list.name)
+                        .font(.headline)
+                    
+                    Text(list.createdDate, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                if list.isArchived {
+                    Image(systemName: "archivebox.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            
+            // Progress
+            HStack {
+                Text("\(list.purchasedItems) من \(list.totalItems)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Text("\(Int(list.progress * 100))%")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            
+            ProgressView(value: list.progress)
+                .tint(.green)
+            
+            // Cost Summary
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "banknote.fill")
+                        .font(.caption)
+                    Text("\(list.totalCost, specifier: "%.2f") ريال")
+                        .font(.caption)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.caption)
+                    Text("\(list.remainingCost, specifier: "%.2f") متبقي")
+                        .font(.caption)
+                }
+                .foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
